@@ -1923,16 +1923,34 @@ SELECT c.contribution_page_id as pageID
    * @static
    */
   static function updateRelatedMemberships($ownerMembershipId, $params) {
+    
+    // Get the full membership object to check the ownsership_member_id
+    $owner = new CRM_Member_DAO_Membership();
+    $owner->id = $ownerMembershipId;
+    $owner->find(TRUE);
+    
     $membership = new CRM_Member_DAO_Membership();
-    $membership->owner_membership_id = $ownerMembershipId;
+    
+    // If the "owner" has an owner_membership_id, it's not really the owner.
+    if (!empty($owner->owner_membership_id)) {
+      $membership->owner_membership_id = $owner->owner_membership_id;
+    }
+    else {
+      $membership->owner_membership_id = $ownerMembershipId;
+    }
     $membership->find();
 
     while ($membership->fetch()) {
-      $relatedMembership = new CRM_Member_DAO_Membership();
-      $relatedMembership->id = $membership->id;
-      $relatedMembership->copyValues($params);
-      $relatedMembership->save();
-      $relatedMembership->free();
+      
+      // Skip the "owner" membership since we're not responsible for it.
+      if ($membership->id != $ownerMembershipId) {
+        $relatedMembership = new CRM_Member_DAO_Membership();
+        $relatedMembership->id = $membership->id;
+        $relatedMembership->copyValues($params);
+        $relatedMembership->save();
+        $relatedMembership->free();
+      }
+      
     }
 
     $membership->free();
